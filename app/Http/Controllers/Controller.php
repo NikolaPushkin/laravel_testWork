@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Relation;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
-use Illuminate\Support\Facades\DB;
+use App\Models\ObjectRGD;
 
 class Controller extends BaseController
 {
@@ -16,13 +17,18 @@ class Controller extends BaseController
         $objects = [];
         $mainParent = '';
         if (count($request->query())) {
-
-            $mainParent = DB::table('objects')
-                ->where('objid', '=', $filter['id'])
-                ->where('begda', '<=', $filter['endda'])
-                ->where('endda', '>=', $filter['endda'])
+            $mainParent = ObjectRGD::where('objid', '=', $filter['id'])
+                ->ObjectExists($filter['begda'], $filter['endda'])
+                ->with(
+                    [
+                        'relations' => function ($query) use ($filter) {
+                            $query->where('relations.endda', '>=', $filter['begda'])
+                                ->RelationExists($filter['begda'], $filter['endda']);
+                        }
+                    ]
+                )
                 ->first();
-            $objects = $this->getObjectsByFilter($filter);
+            $objects = $this->getChildObjectsByFilter($filter);
         }
         return view('main', compact(['objects', 'filter', 'mainParent']));
     }
@@ -33,21 +39,38 @@ class Controller extends BaseController
         $filter['id'] = $request->post('id');
         $filter['begda'] = $request->post('begda');
         $filter['endda'] = $request->post('endda');
-        $objects = $this->getObjectsByFilter($filter);
+        $objects = $this->getChildObjectsByFilter($filter);
         $id = $filter['id'];
         return view('view_objects', compact(['objects', 'filter', 'id']))->render();
     }
 
-    private function getObjectsByFilter($filter)
+    private function getChildObjectsByFilter($filter)
     {
-        return DB::table('objects')
+        $result = Relation::select(
+            'relations.objid',
+            'relations.parent_objid',
+            'relations.begda as rel_begda',
+            'relations.endda as rel_endda',
+            'objects.begda as obj_begda',
+            'objects.endda as obj_endda',
+            'relations.npp as npp'
+        )
             ->where('parent_objid', '=', $filter['id'])
-            ->join('relations', 'objects.objid', '=', 'relations.objid')
+            ->RelationExists($filter['begda'], $filter['endda'])
+            ->where('objects.endda', '>=', $filter['begda'])
             ->where('objects.begda', '<=', $filter['endda'])
-            ->where('objects.endda', '>=', $filter['endda'])
-            ->where('relations.begda', '<=', $filter['endda'])
-            ->where('relations.endda', '>=', $filter['endda'])
-            ->orderBy('npp')
+            ->join('objects', 'relations.objid', '=', 'objects.objid')
+            ->addSelect(
+                [
+                    'name' => ObjectRGD::select('stext')
+                        ->whereColumn('relations.objid', '=', 'objects.objid')
+                        ->ObjectExists($filter['begda'], $filter['endda'])
+                        ->limit(1)
+                ]
+            )
+            ->orderBy('relations.npp', 'asc')
             ->get();
+
+        return $result;
     }
 }

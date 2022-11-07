@@ -14,7 +14,7 @@ return new class extends Migration
     public function up()
     {
         Schema::create('relations', function (Blueprint $table) {
-            $table->bigInteger('parent_objid');
+            $table->bigInteger('parent_objid')->references('objid')->on('relations');
             $table->date('begda');
             $table->date('endda');
             $table->bigInteger('objid');

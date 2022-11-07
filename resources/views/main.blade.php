@@ -11,26 +11,8 @@
 
     <!-- Styles -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css">
+    @vite(['resources/css/app.css'])
 
-    <style>
-        body {
-            font-family: 'Nunito', sans-serif;
-        }
-        #objectList li {
-            cursor: pointer;
-
-        }
-        li::marker {
-            font-size: 12px;
-        }
-        li.object::marker{
-            content: "▼";
-        }
-        li.object.collapsed::marker {
-            content: "►";
-        }
-
-    </style>
 </head>
 <body>
 <div class="container mt-8">
@@ -75,9 +57,10 @@
             <div class="col">
                 <ul id="objectList">
                     @if (isset($mainParent->objid))
-                        <li id="object-{{$mainParent->objid}}" class="object" data-bs-toggle="collapse"
+                        <li id="object-{{$mainParent->objid}}" class="object parent" data-bs-toggle="collapse"
                             data-bs-target="#collapse-{{$mainParent->objid}}"
-                            aria-controls="collapse-{{$mainParent->objid}}">{{$mainParent->stext}}</li>
+                            aria-controls="collapse-{{$mainParent->objid}}"><span
+                                style="color: green">#{{$mainParent->objid}}&nbsp;</span>{{ $mainParent->stext }}</li>
                         @isset($objects)
                             @include('view_objects',['objects'=>$objects,'id'=>$mainParent->objid])
                         @endisset
@@ -99,7 +82,7 @@
         let object = event.target
         let obj_id = event.target.getAttribute('data-object-id')
 
-        if (obj_id > 0 && !object.classList.contains('appended')) {
+        if (obj_id > 0 && object.classList.contains('parent') && !object.classList.contains('appended')) {
             object.classList.add('appended')
             object.classList.toggle('collapsed')
             getChildObjectsById(obj_id, begda, endda)
@@ -123,20 +106,18 @@
             body: urlencoded,
             redirect: 'follow'
         };
-
+        document.querySelector('#object-' + id).style.opacity = 0.5
         return fetch("/getobjects", requestOptions)
             .then(response => {
                 if (response.ok) {
                     response.text().then(data => {
-                        // выведем данные в #result
+                        document.querySelector('#object-' + id).style.opacity = 1
                         document.querySelector('#object-' + id).innerHTML += data
                     });
                 }
             })
             .catch(error => console.log('error', error));
-
     }
-
 </script>
 </body>
 </html>
